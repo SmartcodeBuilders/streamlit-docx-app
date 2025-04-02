@@ -53,7 +53,7 @@ def upload_pdf(client, file_name, file_content):
         return uploaded_pdf
     except Exception as e:
         # Add more detail to the error message if possible
-        st.error(f"Error uploading file to Mistral: {e}")
+        st.error(f"Error al subir archivo a Mistral: {e}")
         # Consider logging the full exception details for debugging
         # import traceback
         # st.error(traceback.format_exc())
@@ -65,7 +65,7 @@ def get_signed_url(client, file_id):
         signed_url = client.files.get_signed_url(file_id=file_id)
         return signed_url
     except Exception as e:
-        st.error(f"Error getting signed URL from Mistral: {e}")
+        st.error(f"Error al obtener URL firmada de Mistral: {e}")
         return None
 
 def get_ocr_result(client, document_url):
@@ -80,7 +80,7 @@ def get_ocr_result(client, document_url):
         )
         return ocr_response
     except Exception as e:
-        st.error(f"Error processing OCR with Mistral: {e}")
+        st.error(f"Error al procesar OCR con Mistral: {e}")
         return None
 
 def get_pdf_markdown(client, file_name, file_content):
@@ -100,7 +100,7 @@ def get_pdf_markdown(client, file_name, file_content):
         joined_markdown ="\n\n".join([page['markdown'] for page in ocr_data.get("pages", [])])
         return joined_markdown
     except Exception as e:
-        st.error(f"Error extracting markdown from OCR result: {e}")
+        st.error(f"Error al extraer markdown del resultado OCR: {e}")
         return None
 
 
@@ -168,20 +168,20 @@ def get_final_summary(client, summary_markdown):
         answer = chat_response.choices[0].message.content
         return answer
     except Exception as e:
-        st.error(f"Error getting summary from Mistral: {e}")
+        st.error(f"Error al obtener resumen de Mistral: {e}")
         return None
 
 # --- Streamlit App Layout ---
 st.set_page_config(layout="wide")
-st.title("Document Processor")
+st.title("Procesador de Documentos")
 
 # --- Create Tabs ---
-tab1, tab2 = st.tabs(["DOCX Report Processor", "PDF Summarizer"])
+tab1, tab2 = st.tabs(["Procesador de Informes DOCX", "Resumidor de PDF"])
 
 # --- DOCX Processor Tab ---
 with tab1:
-    st.header("Process DOCX File")
-    uploaded_docx_file = st.file_uploader("Choose a .docx file", type="docx", key="docx_uploader")
+    st.header("Procesar Archivo DOCX")
+    uploaded_docx_file = st.file_uploader("Selecciona un archivo .docx", type="docx", key="docx_uploader")
 
     if uploaded_docx_file is not None:
         # To read the file content into memory
@@ -192,7 +192,7 @@ with tab1:
         docx_file_like_object_processor = io.BytesIO(file_bytes_docx)
         docx_file_like_object_xml = io.BytesIO(file_bytes_docx) # Create a second one for XML functions
 
-        st.write(f"Processing DOCX: {original_filename_docx}")
+        st.write(f"Procesando DOCX: {original_filename_docx}")
 
         try:
             # --- Process the DOCX file ---
@@ -216,16 +216,16 @@ with tab1:
             if len(proxima_visita_list) < num_visits:
                 proxima_visita_list.extend(['NO'] * (num_visits - len(proxima_visita_list)))
             elif len(proxima_visita_list) > num_visits:
-                st.warning(f"Found {len(proxima_visita_list)} 'Próxima visita' checkbox results but {num_visits} visits parsed. Using results for the first {num_visits} visits.")
+                st.warning(f"Se encontraron {len(proxima_visita_list)} resultados de casilla 'Próxima visita' pero {num_visits} visitas analizadas. Usando resultados para las primeras {num_visits} visitas.")
                 proxima_visita_list = proxima_visita_list[:num_visits]
 
             base_df = doc.df.reset_index(drop=True)
             if base_df.empty:
-                 st.error("Could not extract base information (Compañia, fechas, etc.). Check table 1 structure.")
+                 st.error("No se pudo extraer información base (Compañia, fechas, etc.). Verifica la estructura de la tabla 1.")
 
             for i, visit_df in enumerate(visits):
                 if visit_df is None or visit_df.empty:
-                    st.warning(f"Visit {i+1} data is missing or empty. Skipping.")
+                    st.warning(f"Los datos de la visita {i+1} faltan o están vacíos. Omitiendo.")
                     continue
 
                 current_base_df = base_df.iloc[[0]] if not base_df.empty else pd.DataFrame()
@@ -246,28 +246,152 @@ with tab1:
                 final_list = [df.reindex(columns=all_columns) for df in all_doc_visits_combined]
                 final_df = pd.concat(final_list, ignore_index=True)
 
-                st.write("### Processed DOCX Data Preview")
-                st.dataframe(final_df)
+                # --- Define desired columns and rename mapping ---
+                desired_columns = [
+                    "Compañía", "Fecha siniestro", "Hora", "Lugar de la visita", "Fecha visita",
+                    "Nombre y apellidos", "Condición", "Domicilio", "NIF", "Población",
+                    "Teléfono (FyM)", "C.P.", "Edad", "Fecha nacimiento", "Provincia", "Sexo",
+                    "Lateralidad", "Profesión", "Nivel s.e.", "Puesto de trabajo / ocupación",
+                    "Deportes", "Situación laboral en el momento del accidente", "Actividades de ocio",
+                    "Mail", "Protección", "¿Agravación por no uso protección?", "Estado civil",
+                    "Nº de Hijos", "Menores", "Miembros unidad familiar", "<18 años", ">18 años",
+                    "Miembros discapacitados", "Ama de casa", "Total", "Parcial",
+                    "Antecedentes médicos del lesionado", "Descripción del accidente", "Tipo",
+                    "Fecha ingreso", "Fecha alta", "Nº Historial Clínico", "Códigos", "Diagnóstico",
+                    "Tratamiento y evolución - processed", "HISTORIA ACTUAL", "EXPLORACION FISICA",
+                    "Pruebas complementarias", "Relación de causalidad", "Cronológico", "Topográfico",
+                    "Intensidad", "Continuidad evolutiva", "Exclusión", "Lesiones muy graves", "Lesiones graves",
+                    "Lesiones moderados", "Lesiones basicos",
+                    "Fecha alta",
+                    "Motivos variacion fecha final",
+                    "Prevista", "Definitiva",
+                    "Intervenciones quirúrgicas", "Patrimonial. Daño emergente (se indemniza su importe)",
+                    "Codigo Secuela", "Descripción secuela", "analogía secuela", "rango secuela",
+                    "prev/defin secuela", "puntuación secuela",
+                    "Valoración Total Secuelas", "Motivos variación", "DM psicofisico", "DM estético",
+                    "Pérdida c vida", "DMxperd c vida", "Pérdida feto", "P excepcional",
+                    "Asis sanit futur", "Protesis/ortesis", "RHB dom/amb", "Ayuda técnica",
+                    "Coste movilidad", "Tercera persona", "Descripción de las necesidades",
+                    "Adecuación de vehículo", "Adecuación de vivienda",
+                    "Nombre abogado", "Telefono abogado",
+                    "Actitud frente a la compañía", "Posibilidad transacción", "Precisa investigador",
+                    "Consentimiento informado", "Aclaraciones", "Medio de transporte", "Hasta",
+                    "Otros", "Seguimiento", "Final", "Final Definitivo", "Fecha", "Próxima visita"
+                ]
 
-                # --- Prepare Excel download ---
-                output_excel = io.BytesIO()
-                with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
-                    final_df.to_excel(writer, index=False, sheet_name='Processed Data')
-                excel_data = output_excel.getvalue()
+                # Mapping from ORIGINAL names in docx_processor DataFrames to FINAL names in desired_columns
+                column_rename_map = {
+                    # Table 1 & common fields (likely no renames needed, match desired_columns)
+                    "Teléfono": "Teléfono (FyM)", # Assuming Teléfono from table 1 is this one
+                    "Códigos Diagnóstico": "Códigos",
+                    "Lesiones muy graves": "Muy graves",
+                    "Lesiones graves": "Graves",
+                    "Lesiones moderados": "Moderados",
+                    "Lesiones basicos": "Básicos",
+                    "Motivos variación de fecha inicial": "Motivos variacion fecha final",
+                    "Motivos variacion fecha final": "Motivos variación de fecha inicial",
+                    "Codigo Secuela": "Código",
+                    "analogía secuela": "Analogía",
+                    "rango secuela": "Rango",
+                    "prev/defin secuela": "Prev./Defin.",
+                    "puntuación secuela": "Puntuación",
+                    "Descripción secuela": "Descripción secuela",
+                    "Descripción de las necesidades": "Descripción de las necesidades",
+                    "Descripción del accidente": "Descripción del accidente",
+                    
+                    
 
-                output_filename_excel = f"processed_{os.path.splitext(original_filename_docx)[0]}.xlsx"
+                    # Table 4 fields (likely no renames needed)
 
-                st.download_button(
-                    label="📥 Download DOCX Results (Excel)",
-                    data=excel_data,
-                    file_name=output_filename_excel,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                    # Table 6 fields (First Medical Visit) - Use names defined in populate_first_medical_visit_dataframe
+                    # "Muy graves": "Lesiones muy graves", # Already handled by docx_processor mapping
+                    # "Graves": "Lesiones graves",
+                    # "Moderados": "Lesiones moderados",
+                    # "Básicos": "Lesiones basicos",
+                    # "Fecha alta": "Fecha alta", # Keep this name, it's distinct from table 4's Fecha alta
+                    # "Motivos variación de fecha inicial": "Motivos variacion fecha final",
+
+                    # Table 7 fields (Secuelas) - Use names defined in populate_first_medical_visit_dataframe
+                    # "Código": "Codigo Secuela",
+                    # "Descripción secuela": "Descripción secuela",
+                    # "Analogía": "analogía secuela",
+                    # "Rango": "rango secuela",
+                    # "Prev./Defin.": "prev/defin secuela",
+                    # "Puntuación": "puntuación secuela",
+
+                    # Table 8 fields (Economic Damage - 'Patrimonial...') - Check docx_processor for exact names if needed
+
+                    # Table 9 fields (Lawyer) - Use names defined in populate_first_medical_visit_dataframe
+                    # "Nombre abogado": "Nombre abogado",
+                    # "Teléfono": "Telefono abogado", # Need to distinguish lawyer phone
+
+                    # Table 10 fields (Visit details)
+                    "Tratamiento y evolución. Exploraciones complementarias": "Tratamiento y evolución - processed",
+                    # "HISTORIA ACTUAL", "EXPLORACION FISICA", "Pruebas complementarias" - likely match desired_columns
+
+                    # Table 11 fields (Causality) - likely match desired_columns
+
+                    # Table 12 fields (Company Attitude) - likely match desired_columns
+
+                    # Fields added manually/from XML
+                    # 'Pérdida c vida' - matches
+                    # 'Proxima visita' - matches
+                    # 'Numero de documento' - matches
+                }
+
+                # --- Rename columns based on the map ---
+                # Make sure renames happen *before* adding missing columns
+                final_df.rename(columns=column_rename_map, inplace=True, errors='ignore') # Ignore errors if a column to rename isn't found
+
+                # --- Ensure all desired columns exist, add missing ones with "" ---
+                for col in desired_columns:
+                    if col not in final_df.columns:
+                        final_df[col] = "" # Add missing column filled with empty strings
+
+                # --- Reindex to keep only desired columns in the specified order ---
+                # This ensures the final_df has the correct structure BEFORE transposing
+                final_df = final_df[desired_columns]
+
+                # --- Transpose the final DataFrame ---
+                # Apply .T to swap rows and columns
+                try:
+                    final_df_transposed = final_df.T
+                    # If there were multiple visits (rows) in final_df,
+                    # the columns in final_df_transposed will be 0, 1, 2...
+                    # You could rename them if desired:
+                    # final_df_transposed.columns = [f"Visit_{i+1}" for i in range(len(final_df_transposed.columns))]
+
+                    st.write("### Datos DOCX Procesados")
+                    # Display the transposed DataFrame
+                    st.dataframe(final_df_transposed)
+
+                    # --- Prepare Excel download ---
+                    output_excel = io.BytesIO()
+                    with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
+                        # Write the TRANSPOSED DataFrame to Excel
+                        # index=True includes the original column names (now the index)
+                        final_df_transposed.to_excel(writer, index=True, sheet_name='Datos Procesados Transpuestos')
+                    excel_data = output_excel.getvalue()
+
+                    output_filename_excel = f"procesado_transpuesto_{os.path.splitext(original_filename_docx)[0]}.xlsx"
+
+                    st.download_button(
+                        label="📥 Descargar Resultados DOCX (Excel)", # Label indicates transposed data
+                        data=excel_data,
+                        file_name=output_filename_excel, # Filename indicates transposed data
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+
+                except Exception as transpose_error:
+                    st.error(f"Ocurrió un error durante la transposición: {transpose_error}")
+                    st.write("Mostrando datos originales (no transpuestos) en su lugar.")
+                    st.dataframe(final_df) # Fallback to showing original if transpose fails
+
             else:
-                 st.warning("No visit data could be processed for this DOCX document.")
+                 st.warning("No se pudieron procesar datos de visitas para este documento DOCX.")
 
         except Exception as e:
-            st.error(f"An error occurred during DOCX processing: {e}")
+            st.error(f"Ocurrió un error durante el procesamiento DOCX: {e}")
             # import traceback
             # st.exception(e) # Uncomment for detailed traceback
 
@@ -278,51 +402,51 @@ with tab1:
 
 # --- PDF Summarizer Tab ---
 with tab2:
-    st.header("Summarize PDF File using Mistral AI")
+    st.header("Resumir Archivo PDF usando Mistral AI")
 
     # Check for API Key before showing uploader
     if not MISTRAL_API_KEY:
-        st.warning("⚠️ MISTRAL_API_KEY is not configured. Please set it as an environment variable or Streamlit secret.")
+        st.warning("⚠️ MISTRAL_API_KEY no está configurado. Por favor, configúralo como variable de entorno o secreto de Streamlit.")
         st.stop() # Stop execution in this tab if key is missing
 
     # Initialize client only if key exists
     try:
         client = Mistral(api_key=MISTRAL_API_KEY)
     except Exception as e:
-        st.error(f"Failed to initialize Mistral client: {e}")
+        st.error(f"Error al inicializar el cliente Mistral: {e}")
         st.stop()
 
 
-    uploaded_pdf_file = st.file_uploader("Choose a .pdf file", type="pdf", key="pdf_uploader")
+    uploaded_pdf_file = st.file_uploader("Selecciona un archivo .pdf", type="pdf", key="pdf_uploader")
 
     if uploaded_pdf_file is not None:
         pdf_bytes = uploaded_pdf_file.getvalue()
         pdf_filename = uploaded_pdf_file.name
-        st.write(f"Processing PDF: {pdf_filename}")
+        st.write(f"Procesando PDF: {pdf_filename}")
 
-        with st.spinner("Extracting text from PDF using Mistral OCR..."):
+        with st.spinner("Extrayendo texto del PDF usando Mistral OCR..."):
             markdown_content = get_pdf_markdown(client, pdf_filename, pdf_bytes)
 
         if markdown_content:
-            st.success("✅ Text extracted successfully.")
+            st.success("✅ Texto extraído correctamente.")
             # st.text_area("Extracted Markdown Content (from OCR)", markdown_content, height=200) # Optional: Show intermediate markdown
 
-            with st.spinner("Generating summary using Mistral..."):
+            with st.spinner("Generando resumen usando Mistral..."):
                 final_summary = get_final_summary(client, markdown_content)
 
             if final_summary:
-                st.success("✅ Summary generated successfully.")
-                st.text_area("Generated Summary", final_summary, height=400)
+                st.success("✅ Resumen generado correctamente.")
+                st.text_area("Resumen Generado", final_summary, height=400)
 
                 # Prepare text download
-                output_filename_txt = f"summary_{os.path.splitext(pdf_filename)[0]}.txt"
+                output_filename_txt = f"resumen_{os.path.splitext(pdf_filename)[0]}.txt"
                 st.download_button(
-                    label="📥 Download Summary (TXT)",
+                    label="📥 Descargar Resumen (TXT)",
                     data=final_summary.encode('utf-8'), # Encode summary to bytes
                     file_name=output_filename_txt,
                     mime="text/plain"
                 )
             else:
-                st.error("❌ Failed to generate summary.")
+                st.error("❌ Error al generar el resumen.")
         else:
-            st.error("❌ Failed to extract text from the PDF.")
+            st.error("❌ Error al extraer texto del PDF.")
