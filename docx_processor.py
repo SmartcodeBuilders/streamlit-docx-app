@@ -129,7 +129,7 @@ class WordProcessor:
         
         for row in self.tables[1]:
             for cell_text in row:
-                cleaned = cell_text.replace('\n', ' ')
+                cleaned = cell_text #.replace('\n', ' ')
                 cleaned = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', cleaned)
                 segments = re.split(r'\s{2,}', cleaned)
                 for seg in segments:
@@ -171,7 +171,7 @@ class WordProcessor:
         
         for row in self.tables[2]:
             for cell_text in row:
-                cleaned = cell_text.replace('\n', ' ')
+                cleaned = cell_text #.replace('\n', ' ')
                 cleaned = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', cleaned)
                 segments = re.split(r'\s{2,}', cleaned)
                 for seg in segments:
@@ -277,7 +277,7 @@ class WordProcessor:
             table6 = self.tables[5]
             for row in table6:
                 for i, cell_text in enumerate(row):
-                    cleaned = cell_text.replace('\n', ' ').strip()
+                    cleaned = cell_text #.replace('\n', ' ').strip()
                     cleaned = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', cleaned)
                     if ':' in cleaned:
                         key_part, val_part = cleaned.split(':', 1)
@@ -285,7 +285,7 @@ class WordProcessor:
                         val_part = val_part.strip()
                         if key_part in mapping6:
                             if not val_part and i+1 < len(row):
-                                next_cell = row[i+1].replace('\n', ' ').strip()
+                                next_cell = row[i+1]#.replace('\n', ' ').strip()
                                 next_cell = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', next_cell)
                                 if next_cell and ':' not in next_cell:
                                     val_part = next_cell
@@ -311,7 +311,7 @@ class WordProcessor:
                 values = table7[1]
                 for header, value in zip(headers, values):
                     header_clean = header.strip()
-                    value_clean = value.replace('\n', ' ')
+                    value_clean = value#.replace('\n', ' ')
                     value_clean = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', value_clean).strip()
                     if header_clean in mapping7:
                         data7[mapping7[header_clean]] = value_clean if value_clean else "-"
@@ -323,7 +323,7 @@ class WordProcessor:
             table8 = self.tables[7]
             for row in table8:
                 for cell_text in row:
-                    cleaned = cell_text.replace('\n', ' ')
+                    cleaned = cell_text#.replace('\n', ' ')
                     cleaned = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', cleaned)
                     if "Grado y razonarlo:" in cleaned or "Notas:" in cleaned:
                         _, val = cleaned.split(":", 1)
@@ -340,7 +340,7 @@ class WordProcessor:
             table9 = self.tables[9]
             for row in table9:
                 for cell_text in row:
-                    cleaned = cell_text.replace('\n', ' ')
+                    cleaned = cell_text#.replace('\n', ' ')
                     cleaned = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', cleaned)
                     if ':' in cleaned:
                         key, val = cleaned.split(':', 1)
@@ -422,7 +422,7 @@ class WordProcessor:
             
             for row_idx, row in enumerate(table_first):
                 for cell in row:
-                    cleaned = cell.replace('\n', ' ').strip()
+                    cleaned = cell#.replace('\n', ' ').strip()
                     cleaned = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', cleaned)
                     if ':' in cleaned:
                         key, val = cleaned.split(':', 1)
@@ -448,7 +448,7 @@ class WordProcessor:
                 values = table_second[1]
                 for header, value in zip(headers, values):
                     header_clean = header.strip()
-                    value_clean = value.replace('\n', ' ').strip()
+                    value_clean = value#.replace('\n', ' ').strip()
                     value_clean = re.sub(r'[\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a]+', ' ', value_clean)
                     if header_clean in mapping7 and value_clean:
                         data_second[mapping7[header_clean]] = value_clean

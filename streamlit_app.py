@@ -247,7 +247,7 @@ with tab1:
                 final_df = pd.concat(final_list, ignore_index=True)
 
                 # --- Define desired columns and rename mapping ---
-                desired_columns = [
+                desired_columns = [ 'Numero de documento',
                     "Compañía", "Fecha siniestro", "Hora", "Lugar de la visita", "Fecha visita",
                     "Nombre y apellidos", "Condición", "Domicilio", "NIF", "Población",
                     "Teléfono (FyM)", "C.P.", "Edad", "Fecha nacimiento", "Provincia", "Sexo",
