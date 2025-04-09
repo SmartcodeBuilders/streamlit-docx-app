@@ -4,6 +4,7 @@ import io
 import os
 from mistralai import Mistral
 import tempfile
+from utils import process_docx_file
 
 # Make sure docx_processor and parse_xml are in the same directory or accessible in PYTHONPATH
 from docx_processor import WordProcessor
@@ -181,105 +182,25 @@ tab1, tab2 = st.tabs(["Procesador de Informes DOCX", "Resumidor de PDF"])
 # --- DOCX Processor Tab ---
 with tab1:
     st.header("Procesar Archivo DOCX")
-    uploaded_docx_file = st.file_uploader("Selecciona un archivo .docx", type="docx", key="docx_uploader")
+    uploaded_file = st.file_uploader("Choose a .docx file", type="docx")
 
-    if uploaded_docx_file is not None:
-        # To read the file content into memory
-        file_bytes_docx = uploaded_docx_file.getvalue()
-        original_filename_docx = uploaded_docx_file.name
+    if uploaded_file is not None:
+        # Read the file content into memory
+        file_bytes = uploaded_file.getvalue()
+        original_filename = uploaded_file.name
 
-        # Use BytesIO to treat the bytes as a file for processing
-        docx_file_like_object_processor = io.BytesIO(file_bytes_docx)
-        docx_file_like_object_xml = io.BytesIO(file_bytes_docx) # Create a second one for XML functions
+        # Create BytesIO object for processing
+        docx_file_like_object = io.BytesIO(file_bytes)
+        docx_file_like_object.name = original_filename  # Set name attribute for reference
 
-        st.write(f"Procesando DOCX: {original_filename_docx}")
+        st.write(f"Processing: {original_filename}")
 
         try:
-            # --- Process the DOCX file ---
-            doc = WordProcessor(docx_file_like_object_processor)
+            # Process the DOCX file using the utility function
+            final_df = process_docx_file(docx_file_like_object)
 
-            # --- Get additional data from XML ---
-            perdida_c_vida = check_consent_from_docx(docx_file_like_object_xml)
-            docx_file_like_object_xml.seek(0) # Reset stream position
-            proxima_visita_list = check_proxima_visita_checkbox(docx_file_like_object_xml)
-
-            # --- Get Doc Number from filename ---
-            doc_number = "N/A"
-            if original_filename_docx:
-                doc_number = os.path.basename(original_filename_docx).split(" ")[0]
-
-            # --- Combine DataFrames ---
-            visits = [doc.first_medical_visit] + doc.next_medical_visits
-            combined_visits_list = []
-
-            num_visits = len(visits)
-            if len(proxima_visita_list) < num_visits:
-                proxima_visita_list.extend(['NO'] * (num_visits - len(proxima_visita_list)))
-            elif len(proxima_visita_list) > num_visits:
-                st.warning(f"Se encontraron {len(proxima_visita_list)} resultados de casilla 'Próxima visita' pero {num_visits} visitas analizadas. Usando resultados para las primeras {num_visits} visitas.")
-                proxima_visita_list = proxima_visita_list[:num_visits]
-
-            base_df = doc.df.reset_index(drop=True)
-            if base_df.empty:
-                 st.error("No se pudo extraer información base (Compañia, fechas, etc.). Verifica la estructura de la tabla 1.")
-
-            for i, visit_df in enumerate(visits):
-                if visit_df is None or visit_df.empty:
-                    st.warning(f"Los datos de la visita {i+1} faltan o están vacíos. Omitiendo.")
-                    continue
-
-                current_base_df = base_df.iloc[[0]] if not base_df.empty else pd.DataFrame()
-                combined = pd.concat([current_base_df, visit_df.reset_index(drop=True)], axis=1)
-
-                combined['Pérdida c vida'] = perdida_c_vida
-                combined['Proxima visita'] = proxima_visita_list[i] if i < len(proxima_visita_list) else 'NO'
-                combined['Numero de documento'] = doc_number
-                combined_visits_list.append(combined)
-
-            if combined_visits_list:
-                all_doc_visits_combined = [df.loc[:, ~df.columns.duplicated()] for df in combined_visits_list]
-
-                all_columns = pd.Index([])
-                for df in all_doc_visits_combined:
-                    all_columns = all_columns.union(df.columns)
-
-                final_list = [df.reindex(columns=all_columns) for df in all_doc_visits_combined]
-                final_df = pd.concat(final_list, ignore_index=True)
-
-                # --- Define desired columns and rename mapping ---
-                desired_columns = [ 'Numero de documento',
-                    "Compañía", "Fecha siniestro", "Hora", "Lugar de la visita", "Fecha visita",
-                    "Nombre y apellidos", "Condición", "Domicilio", "NIF", "Población",
-                    "Teléfono (FyM)", "C.P.", "Edad", "Fecha nacimiento", "Provincia", "Sexo",
-                    "Lateralidad", "Profesión", "Nivel s.e.", "Puesto de trabajo / ocupación",
-                    "Deportes", "Situación laboral en el momento del accidente", "Actividades de ocio",
-                    "Mail", "Protección", "¿Agravación por no uso protección?", "Estado civil",
-                    "Nº de Hijos", "Menores", "Miembros unidad familiar", "<18 años", ">18 años",
-                    "Miembros discapacitados", "Ama de casa", "Total", "Parcial",
-                    "Antecedentes médicos del lesionado", "Descripción del accidente", "Tipo",
-                    "Fecha ingreso", "Fecha alta", "Nº Historial Clínico", "Códigos", "Diagnóstico",
-                    "Tratamiento y evolución - processed", "HISTORIA ACTUAL", "EXPLORACION FISICA",
-                    "Pruebas complementarias", "Relación de causalidad", "Cronológico", "Topográfico",
-                    "Intensidad", "Continuidad evolutiva", "Exclusión", "Lesiones muy graves", "Lesiones graves",
-                    "Lesiones moderados", "Lesiones basicos",
-                    "Fecha alta",
-                    "Motivos variacion fecha final",
-                    "Prevista", "Definitiva",
-                    "Intervenciones quirúrgicas", "Patrimonial. Daño emergente (se indemniza su importe)",
-                    "Codigo Secuela", "Descripción secuela", "analogía secuela", "rango secuela",
-                    "prev/defin secuela", "puntuación secuela",
-                    "Valoración Total Secuelas", "Motivos variación", "DM psicofisico", "DM estético",
-                    "Pérdida c vida", "DMxperd c vida", "Pérdida feto", "P excepcional",
-                    "Asis sanit futur", "Protesis/ortesis", "RHB dom/amb", "Ayuda técnica",
-                    "Coste movilidad", "Tercera persona", "Descripción de las necesidades",
-                    "Adecuación de vehículo", "Adecuación de vivienda",
-                    "Nombre abogado", "Telefono abogado",
-                    "Actitud frente a la compañía", "Posibilidad transacción", "Precisa investigador",
-                    "Consentimiento informado", "Aclaraciones", "Medio de transporte", "Hasta",
-                    "Otros", "Seguimiento", "Final", "Final Definitivo", "Fecha", "Próxima visita"
-                ]
-
-                # Mapping from ORIGINAL names in docx_processor DataFrames to FINAL names in desired_columns
+            if not final_df.empty:
+                # Define column rename mapping
                 column_rename_map = {
                     # Table 1 & common fields (likely no renames needed, match desired_columns)
                     "Teléfono": "Teléfono (FyM)", # Assuming Teléfono from table 1 is this one
@@ -298,107 +219,41 @@ with tab1:
                     "Descripción secuela": "Descripción secuela",
                     "Descripción de las necesidades": "Descripción de las necesidades",
                     "Descripción del accidente": "Descripción del accidente",
-                    
-                    
-
-                    # Table 4 fields (likely no renames needed)
-
-                    # Table 6 fields (First Medical Visit) - Use names defined in populate_first_medical_visit_dataframe
-                    # "Muy graves": "Lesiones muy graves", # Already handled by docx_processor mapping
-                    # "Graves": "Lesiones graves",
-                    # "Moderados": "Lesiones moderados",
-                    # "Básicos": "Lesiones basicos",
-                    # "Fecha alta": "Fecha alta", # Keep this name, it's distinct from table 4's Fecha alta
-                    # "Motivos variación de fecha inicial": "Motivos variacion fecha final",
-
-                    # Table 7 fields (Secuelas) - Use names defined in populate_first_medical_visit_dataframe
-                    # "Código": "Codigo Secuela",
-                    # "Descripción secuela": "Descripción secuela",
-                    # "Analogía": "analogía secuela",
-                    # "Rango": "rango secuela",
-                    # "Prev./Defin.": "prev/defin secuela",
-                    # "Puntuación": "puntuación secuela",
-
-                    # Table 8 fields (Economic Damage - 'Patrimonial...') - Check docx_processor for exact names if needed
-
-                    # Table 9 fields (Lawyer) - Use names defined in populate_first_medical_visit_dataframe
-                    # "Nombre abogado": "Nombre abogado",
-                    # "Teléfono": "Telefono abogado", # Need to distinguish lawyer phone
-
-                    # Table 10 fields (Visit details)
-                    "Tratamiento y evolución. Exploraciones complementarias": "Tratamiento y evolución - processed",
-                    # "HISTORIA ACTUAL", "EXPLORACION FISICA", "Pruebas complementarias" - likely match desired_columns
-
-                    # Table 11 fields (Causality) - likely match desired_columns
-
-                    # Table 12 fields (Company Attitude) - likely match desired_columns
-
-                    # Fields added manually/from XML
-                    # 'Pérdida c vida' - matches
-                    # 'Proxima visita' - matches
-                    # 'Numero de documento' - matches
+                    "Tratamiento y evolución. Exploraciones complementarias": "Tratamiento y evolución - processed"
                 }
+                
+                # Rename columns
+                final_df.rename(columns=column_rename_map, inplace=True, errors='ignore')
+                
+                final_df = final_df.T
+                
+                # Display preview
+                st.write("### Processed Data Preview")
+                st.dataframe(final_df)
 
-                # --- Rename columns based on the map ---
-                # Make sure renames happen *before* adding missing columns
-                final_df.rename(columns=column_rename_map, inplace=True, errors='ignore') # Ignore errors if a column to rename isn't found
+                # Prepare Excel download
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    final_df.to_excel(writer, index=False, sheet_name='Processed Data')
+                excel_data = output.getvalue()
 
-                # --- Ensure all desired columns exist, add missing ones with "" ---
-                for col in desired_columns:
-                    if col not in final_df.columns:
-                        final_df[col] = "" # Add missing column filled with empty strings
-
-                # --- Reindex to keep only desired columns in the specified order ---
-                # This ensures the final_df has the correct structure BEFORE transposing
-                final_df = final_df[desired_columns]
-
-                # --- Transpose the final DataFrame ---
-                # Apply .T to swap rows and columns
-                try:
-                    final_df_transposed = final_df.T
-                    # If there were multiple visits (rows) in final_df,
-                    # the columns in final_df_transposed will be 0, 1, 2...
-                    # You could rename them if desired:
-                    # final_df_transposed.columns = [f"Visit_{i+1}" for i in range(len(final_df_transposed.columns))]
-
-                    st.write("### Datos DOCX Procesados")
-                    # Display the transposed DataFrame
-                    st.dataframe(final_df_transposed)
-
-                    # --- Prepare Excel download ---
-                    output_excel = io.BytesIO()
-                    with pd.ExcelWriter(output_excel, engine='xlsxwriter') as writer:
-                        # Write the TRANSPOSED DataFrame to Excel
-                        # index=True includes the original column names (now the index)
-                        final_df_transposed.to_excel(writer, index=True, sheet_name='Datos Procesados Transpuestos')
-                    excel_data = output_excel.getvalue()
-
-                    output_filename_excel = f"procesado_transpuesto_{os.path.splitext(original_filename_docx)[0]}.xlsx"
-
-                    st.download_button(
-                        label="📥 Descargar Resultados DOCX (Excel)", # Label indicates transposed data
-                        data=excel_data,
-                        file_name=output_filename_excel, # Filename indicates transposed data
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-
-                except Exception as transpose_error:
-                    st.error(f"Ocurrió un error durante la transposición: {transpose_error}")
-                    st.write("Mostrando datos originales (no transpuestos) en su lugar.")
-                    st.dataframe(final_df) # Fallback to showing original if transpose fails
-
+                # Create download button
+                output_filename = f"processed_{os.path.splitext(original_filename)[0]}.xlsx"
+                st.download_button(
+                    label="📥 Download Excel File",
+                    data=excel_data,
+                    file_name=output_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
             else:
-                 st.warning("No se pudieron procesar datos de visitas para este documento DOCX.")
+                st.warning("No visit data could be processed for this document.")
 
         except Exception as e:
-            st.error(f"Ocurrió un error durante el procesamiento DOCX: {e}")
-            # import traceback
-            # st.exception(e) # Uncomment for detailed traceback
+            st.error(f"An error occurred during processing: {e}")
+            st.exception(e)  # This will show the full traceback
 
         finally:
-            # Close the BytesIO objects
-            docx_file_like_object_processor.close()
-            docx_file_like_object_xml.close()
+            docx_file_like_object.close()
 
 # --- PDF Summarizer Tab ---
 with tab2:
