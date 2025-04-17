@@ -4,6 +4,9 @@ from docx_processor import WordProcessor
 import pandas as pd
 from parse_xml import check_consent_from_docx, check_proxima_visita_checkbox
 import io
+import requests
+import io
+from PIL import Image
 
 def process_docx_file(docx_file):
     """
@@ -74,6 +77,50 @@ def process_docx_file(docx_file):
     # Concatenate all rows into a single DataFrame
     final_df = pd.concat(final_list, ignore_index=True)
     
+    ## NEW CODE ##
+    # Repeat columns
+    # Copy 'Antecedentes médicos del lesionado' from the first row to all other rows
+    if 'Antecedentes médicos del lesionado' in final_df.columns and len(final_df) > 1:
+        # Get the value from the first row
+        antecedentes_value = final_df['Antecedentes médicos del lesionado'].iloc[0]
+        # Copy to all other rows
+        final_df.loc[1:, 'Antecedentes médicos del lesionado'] = antecedentes_value
+        
+    # Copy 'Descripción del accidente' from the first row to all other rows
+    if 'Descripción del accidente' in final_df.columns and len(final_df) > 1:
+        # Get the value from the first row
+        descripcion_accidente_value = final_df['Descripción del accidente'].iloc[0]
+        # Copy to all other rows
+        final_df.loc[1:, 'Descripción del accidente'] = descripcion_accidente_value
+        
+    # Copy 'Relación de causalidad' from the first row to all other rows
+    if 'Relación de causalidad' in final_df.columns and len(final_df) > 1:
+        # Get the value from the first row
+        causalidad_value = final_df['Relación de causalidad'].iloc[0]
+        # Copy to all other rows
+        final_df.loc[1:, 'Relación de causalidad'] = causalidad_value
+    ## END NEW CODE ##
+    
+    ## NEW CODE ##
+    # Remove all alpha characters from 'Fecha visita'
+    if 'Fecha visita' in final_df.columns:
+        # Use regex to keep only non-alpha characters (digits, punctuation, spaces)
+        final_df['Fecha visita'] = final_df['Fecha visita'].astype(str).str.replace(r'[a-zA-Z]', '', regex=True)
+        # Clean up any extra spaces that might result
+        final_df['Fecha visita'] = final_df['Fecha visita'].str.strip()
+    ## END NEW CODE ##
+    
+    ## NEW CODE ##
+    # Unify 'Fecha visita' and 'Fecha de consulta extra' columns
+    if 'Fecha de consulta extra' in final_df.columns and 'Fecha visita' in final_df.columns:
+        # Where 'Fecha de consulta extra' has values, copy them to 'Fecha visita'
+        mask = final_df['Fecha de consulta extra'].notna()
+        final_df.loc[mask, 'Fecha visita'] = final_df.loc[mask, 'Fecha de consulta extra']
+        
+        # Remove the 'Fecha de consulta extra' column
+        final_df = final_df.drop(columns=['Fecha de consulta extra'])
+    ## END NEW CODE ##
+    
     # Reorder columns: first the base columns from doc.df
     base_cols = list(cleaned[0].columns)
     visit_cols_order = [col for col in final_df.columns if col not in base_cols]
@@ -81,3 +128,39 @@ def process_docx_file(docx_file):
     final_df = final_df.reindex(columns=final_order)
     
     return final_df
+
+
+def get_image_from_gdrive(gdrive_url: str) -> io.BytesIO:
+    """
+    Downloads an image from a Google Drive shared URL and returns it as a BytesIO object.
+
+    Args:
+        gdrive_url (str): The shared Google Drive URL (must be publicly accessible).
+
+    Returns:
+        io.BytesIO: The image in memory as a file-like object.
+    
+    Raises:
+        ValueError: If the file ID cannot be extracted or the download fails.
+    """
+    try:
+        # Extract file ID
+        if "/file/d/" in gdrive_url:
+            file_id = gdrive_url.split("/file/d/")[1].split("/")[0]
+        else:
+            raise ValueError("Invalid Google Drive URL format.")
+
+        # Build direct download URL
+        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+        # Attempt to download the file
+        response = requests.get(download_url)
+        if response.status_code != 200:
+            raise ValueError("Failed to download image from Google Drive.")
+
+        # Return as BytesIO (like st.file_uploader)
+        image_bytes = io.BytesIO(response.content)
+        return image_bytes
+    except Exception as e: # catch other errors
+        print(f"An unexpected error occurred: {e}")
+        return None
