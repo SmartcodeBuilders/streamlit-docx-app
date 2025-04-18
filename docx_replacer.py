@@ -201,16 +201,21 @@ def fill_and_offer_multiple_downloads(
     # Load the template Word document
     doc = Document(template_path)
     
+    excluded_keys = ["{{Doctor}}", "{{Numero de colegiado}}", "{{Doctor Identification}}"]
     
     for para in doc.paragraphs:
         for key, val in replacements.items():
             if key in para.text:
                 para.text = para.text.replace(key, val)
-                
+                if key not in excluded_keys:
+                    para.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Align to left
+
     for para in doc.paragraphs:
         for key, val in extra_information.items():
             if key in para.text:
                 para.text = para.text.replace(key, val)
+                if key not in excluded_keys:
+                    para.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Align to left
     
 
     
