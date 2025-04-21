@@ -7,6 +7,16 @@ import tempfile
 from utils import process_docx_file
 from docx_replacer import preview_file
 
+# Ocultar botón de GitHub (no oficial, puede romperse en el futuro)
+hide_github_style = """
+    <style>
+    .st-emotion-cache-j7qwjs.e1nzilvr1 {
+        visibility: hidden;
+    }
+    </style>
+"""
+st.markdown(hide_github_style, unsafe_allow_html=True)
+
 # Make sure docx_processor and parse_xml are in the same directory or accessible in PYTHONPATH
 from docx_processor import WordProcessor
 from parse_xml import check_consent_from_docx, check_proxima_visita_checkbox
