@@ -1,0 +1,8 @@
+[theme]
+# Optional: theme settings can go here
+
+[server]
+# Optional: server settings
+
+[ui]
+hideGithubButton = true
